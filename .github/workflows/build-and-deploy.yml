@@ -43,14 +43,24 @@ jobs:
 
       - name: Install dependencies
         working-directory: source/baraonda-padel
-        # npm ci is intentionally not used: this installs from an upstream repo
-        # we don't control, and its lock file can drift out of sync with package.json.
-        # The `supabase` devDependency (CLI) is dropped: it's only used for local
-        # migrations/dev, pulls a large platform binary in postinstall, and isn't
-        # needed to run vitest or build the static frontend.
+        # npm ci (not install): the upstream lock file is in sync with package.json,
+        # and ci is faster/deterministic. Retries + short fetch timeouts guard against
+        # the hosted-runner network stalls that trigger npm's "Exit handler never
+        # called!" bug, which otherwise hangs silently for minutes.
         run: |
-          npm pkg delete devDependencies.supabase
-          npm install
+          npm config set fetch-timeout 60000
+          npm config set fetch-retry-mintimeout 5000
+          npm config set fetch-retry-maxtimeout 20000
+          n=0
+          until npm ci; do
+            n=$((n + 1))
+            if [ "$n" -ge 3 ]; then
+              echo "npm ci failed after $n attempts" >&2
+              exit 1
+            fi
+            echo "npm ci failed, retrying in 10s (attempt $n)..."
+            sleep 10
+          done
 
       - name: Run tests
         working-directory: source/baraonda-padel
