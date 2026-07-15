@@ -1,0 +1,75 @@
+name: Build source repo and deploy to Pages
+
+on:
+  schedule:
+    # every 15 minutes - polls the upstream (read-only, public) repo for changes
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  SOURCE_REPO: Ale6699/PadelsLeague
+  SOURCE_REF: main
+  CUSTOM_DOMAIN: padel.sagliettiluca.it
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout upstream source (public, read-only)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.SOURCE_REPO }}
+          ref: ${{ env.SOURCE_REF }}
+          path: source
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: source/baraonda-padel/package-lock.json
+
+      - name: Install dependencies
+        working-directory: source/baraonda-padel
+        run: npm ci
+
+      - name: Run tests
+        working-directory: source/baraonda-padel
+        run: npm test
+
+      - name: Build (served from domain root, not a /repo/ subpath)
+        working-directory: source/baraonda-padel
+        run: npx vite build --base=/
+
+      - name: Add custom domain CNAME
+        run: echo "${{ env.CUSTOM_DOMAIN }}" > source/baraonda-padel/dist/CNAME
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: source/baraonda-padel/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
