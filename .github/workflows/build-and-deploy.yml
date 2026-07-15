@@ -41,43 +41,19 @@ jobs:
           cache: npm
           cache-dependency-path: source/baraonda-padel/package-lock.json
 
-      - name: Diagnose registry connectivity
-        run: |
-          echo "Node/npm versions:"
-          node -v
-          npm -v
-          echo "DNS lookup:"
-          getent hosts registry.npmjs.org || true
-          echo "HTTPS request timing:"
-          time curl -sS -o /dev/null -w "http_code=%{http_code} time_total=%{time_total}\n" --max-time 20 https://registry.npmjs.org/react || echo "curl failed/timed out"
-
       - name: Install dependencies
         working-directory: source/baraonda-padel
-        # npm ci (not install): the upstream lock file is in sync with package.json,
-        # and ci is faster/deterministic. --no-audit/--no-fund skip the extra
-        # registry calls that are the known trigger for npm's "Exit handler
-        # never called!" bug (silent multi-minute hang on hosted runners).
-        # registry.npmjs.org only resolves to IPv6 here; forcing IPv4-first
-        # avoids the flaky-IPv6-subset-of-connections path that's the other
-        # commonly reported trigger for the same npm bug. Retries + short
-        # fetch timeouts are a backstop for any remaining flakiness.
-        env:
-          NODE_OPTIONS: --dns-result-order=ipv4first
+        # The upstream package-lock.json has "resolved" URLs pointing at an
+        # internal proxy host (applied-caas-gateway1.internal.api.openai.org)
+        # instead of the public npm registry -- an artifact of whatever
+        # sandboxed environment last regenerated that lock file. Those URLs
+        # are unreachable from here (older npm hung for minutes retrying them
+        # before crashing; newer npm fails fast with EALLOWREMOTE). Dropping
+        # the lock file lets npm resolve everything fresh from the real
+        # public registry instead.
         run: |
-          npm install -g npm@latest
-          npm config set fetch-timeout 60000
-          npm config set fetch-retry-mintimeout 5000
-          npm config set fetch-retry-maxtimeout 20000
-          n=0
-          until npm ci --no-audit --no-fund; do
-            n=$((n + 1))
-            if [ "$n" -ge 3 ]; then
-              echo "npm ci failed after $n attempts" >&2
-              exit 1
-            fi
-            echo "npm ci failed, retrying in 10s (attempt $n)..."
-            sleep 10
-          done
+          rm -f package-lock.json
+          npm install --no-audit --no-fund
 
       - name: Run tests
         working-directory: source/baraonda-padel
