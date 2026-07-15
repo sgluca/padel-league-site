@@ -44,15 +44,16 @@ jobs:
       - name: Install dependencies
         working-directory: source/baraonda-padel
         # npm ci (not install): the upstream lock file is in sync with package.json,
-        # and ci is faster/deterministic. Retries + short fetch timeouts guard against
-        # the hosted-runner network stalls that trigger npm's "Exit handler never
-        # called!" bug, which otherwise hangs silently for minutes.
+        # and ci is faster/deterministic. --no-audit/--no-fund skip the extra
+        # registry calls that are the known trigger for npm's "Exit handler
+        # never called!" bug (silent multi-minute hang on hosted runners).
+        # Retries + short fetch timeouts are a backstop for any remaining flakiness.
         run: |
           npm config set fetch-timeout 60000
           npm config set fetch-retry-mintimeout 5000
           npm config set fetch-retry-maxtimeout 20000
           n=0
-          until npm ci; do
+          until npm ci --no-audit --no-fund; do
             n=$((n + 1))
             if [ "$n" -ge 3 ]; then
               echo "npm ci failed after $n attempts" >&2
