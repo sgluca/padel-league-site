@@ -2,8 +2,8 @@ name: Build source repo and deploy to Pages
 
 on:
   schedule:
-    # every 15 minutes - polls the upstream (read-only, public) repo for changes
-    - cron: '*/15 * * * *'
+    # hourly - polls the upstream (read-only, public) repo for changes
+    - cron: '0 * * * *'
   workflow_dispatch: {}
   push:
     branches: [main]
