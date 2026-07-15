@@ -57,8 +57,14 @@ jobs:
         # and ci is faster/deterministic. --no-audit/--no-fund skip the extra
         # registry calls that are the known trigger for npm's "Exit handler
         # never called!" bug (silent multi-minute hang on hosted runners).
-        # Retries + short fetch timeouts are a backstop for any remaining flakiness.
+        # registry.npmjs.org only resolves to IPv6 here; forcing IPv4-first
+        # avoids the flaky-IPv6-subset-of-connections path that's the other
+        # commonly reported trigger for the same npm bug. Retries + short
+        # fetch timeouts are a backstop for any remaining flakiness.
+        env:
+          NODE_OPTIONS: --dns-result-order=ipv4first
         run: |
+          npm install -g npm@latest
           npm config set fetch-timeout 60000
           npm config set fetch-retry-mintimeout 5000
           npm config set fetch-retry-maxtimeout 20000
