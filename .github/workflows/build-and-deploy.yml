@@ -25,6 +25,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout upstream source (public, read-only)
         uses: actions/checkout@v4
@@ -44,7 +45,12 @@ jobs:
         working-directory: source/baraonda-padel
         # npm ci is intentionally not used: this installs from an upstream repo
         # we don't control, and its lock file can drift out of sync with package.json.
-        run: npm install
+        # The `supabase` devDependency (CLI) is dropped: it's only used for local
+        # migrations/dev, pulls a large platform binary in postinstall, and isn't
+        # needed to run vitest or build the static frontend.
+        run: |
+          npm pkg delete devDependencies.supabase
+          npm install
 
       - name: Run tests
         working-directory: source/baraonda-padel
@@ -52,6 +58,10 @@ jobs:
 
       - name: Build (served from domain root, not a /repo/ subpath)
         working-directory: source/baraonda-padel
+        env:
+          VITE_DATA_PROVIDER: supabase
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
         run: npx vite build --base=/
 
       - name: Add custom domain CNAME
