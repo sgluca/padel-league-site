@@ -42,7 +42,9 @@ jobs:
 
       - name: Install dependencies
         working-directory: source/baraonda-padel
-        run: npm ci
+        # npm ci is intentionally not used: this installs from an upstream repo
+        # we don't control, and its lock file can drift out of sync with package.json.
+        run: npm install
 
       - name: Run tests
         working-directory: source/baraonda-padel
