@@ -70,6 +70,14 @@ jobs:
       - name: Add custom domain CNAME
         run: echo "${{ env.CUSTOM_DOMAIN }}" > source/baraonda-padel/dist/CNAME
 
+      - name: SPA fallback for direct/deep-link routes
+        # The app does client-side routing off window.location.pathname (no
+        # react-router base handling), but GitHub Pages is a static host: a
+        # direct request to e.g. /login has no matching file and 404s.
+        # Serving index.html as 404.html keeps the URL intact and lets the
+        # app's own router take over on load.
+        run: cp source/baraonda-padel/dist/index.html source/baraonda-padel/dist/404.html
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
